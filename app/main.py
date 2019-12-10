@@ -5,8 +5,9 @@ from starlette.requests import Request
 from app.api.api_v1.api import api_router
 import config
 from app.db.session import Session
-
+from databases import Database
 app = FastAPI(title=config.PROJECT_NAME, openapi_url="/api/v1/openapi.json")
+database = Database(config.SQLALCHEMY_DATABASE_URI)
 
 # CORS
 origins = []
@@ -31,9 +32,20 @@ app.include_router(api_router, prefix=config.API_V1_STR)
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     request.state.db = Session()
+    request.state.a_db = database
     response = await call_next(request)
     request.state.db.close()
     return response
+
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
+
 
 if __name__ == "__main__":
     import uvicorn
