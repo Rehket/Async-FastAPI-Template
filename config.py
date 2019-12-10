@@ -2,9 +2,11 @@ import os
 
 try:
     import loguru
+
     logger = loguru.logger
 except ImportError as e:
     import logging as logger
+
 
 def getenv_boolean(var_name, default_value=False):
     result = default_value
@@ -40,9 +42,7 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 POSTGRES_SCHEMA = os.getenv("POSTGRES_SCHEMA")
-SQLALCHEMY_DATABASE_URI = (
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
+SQLALCHEMY_DATABASE_URI = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}?options=-csearch_path={POSTGRES_SCHEMA}"
 
 PUBLIC_TABLES = []
 SCHEMA_QUERY = f"SELECT s.nspname AS schema_name FROM pg_catalog.pg_namespace;"
