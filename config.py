@@ -1,5 +1,10 @@
 import os
 
+try:
+    import loguru
+    logger = loguru.logger
+except ImportError as e:
+    import logging as logger
 
 def getenv_boolean(var_name, default_value=False):
     result = default_value
