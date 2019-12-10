@@ -17,7 +17,3 @@ $env:LOCAL_DEV="True"
 $env:FIRST_SUPERUSER="adam@adam.com"
 $env:FIRST_SUPERUSER_PASSWORD="44d339666"
 $env:USERS_OPEN_REGISTRATION="true"
-
-
-# Set this ot the location of the Cert if you get a cert error
-# $env:PIP_CERT="$PSScriptRoot\OD_Root_CA.crt"
