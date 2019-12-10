@@ -1,9 +1,8 @@
 # Used to bootstrap a dev environment.
 
 import os
-import subprocess
 import sys
-from app.core import config
+import config
 from tenacity import retry, wait_fixed
 import docker
 from psycopg2 import connect

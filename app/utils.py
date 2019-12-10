@@ -1,12 +1,9 @@
-import logging
-from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 import jwt
 from jwt.exceptions import InvalidTokenError
 
-from app.core import config
+import config
 
 password_reset_jwt_subject = "preset"
 
