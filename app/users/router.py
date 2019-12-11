@@ -2,62 +2,59 @@ from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
-from pydantic.types import EmailStr
-from sqlalchemy.orm import Session
-
-from app import crud
-from app.api.utils.db import get_db
+from app.api.utils.db import get_async_db
 from app.api.utils.security import get_current_active_superuser, get_current_active_user
 import config
-from app.db_models.user import User as DBUser
-from app.models.user import User, UserCreate, UserInDB, UserUpdate
+from app.users.controller import User, UserCreate, UserSec, UserUpdate, UserORM, UserBaseInDB
+from app.users import crud as user_crud
+from databases import Database
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[User])
-def read_users(
-    db: Session = Depends(get_db),
+async def read_users(
+    db: Database = Depends(get_async_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: DBUser = Depends(get_current_active_superuser),
+    current_user: UserORM = Depends(get_current_active_superuser),
 ):
     """
     Retrieve users.
     """
-    users = crud.user.get_multi(db, skip=skip, limit=limit)
-    return users
+    user_list = await user_crud.get_multi(db, skip=skip, limit=limit)
+    return user_list
 
 
-@router.post("/", response_model=User)
-def create_user(
+@router.post("/", response_model=UserBaseInDB)
+async def create_user(
     *,
-    db: Session = Depends(get_db),
+    db: Database = Depends(get_async_db),
     user_in: UserCreate,
-    current_user: DBUser = Depends(get_current_active_superuser),
+    current_user: UserORM = Depends(get_current_active_superuser),
 ):
     """
     Create new user.
     """
-    user = crud.user.get_by_email(db, email=user_in.email)
+    user = user_crud.get_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=400,
             detail="The user with this username already exists in the system.",
         )
-    user = crud.user.create(db, user_in=user_in)
+    user = user_crud.create(db, user_in=user_in)
 
     return user
 
 
-@router.put("/me", response_model=User)
-def update_user_me(
+@router.put("/me", response_model=UserBaseInDB)
+async def update_user_me(
     *,
-    db: Session = Depends(get_db),
+    db: Database = Depends(get_async_db),
     password: str = Body(None),
     full_name: str = Body(None),
-    email: EmailStr = Body(None),
-    current_user: DBUser = Depends(get_current_active_user),
+    email: str = Body(None),
+    current_user: UserORM = Depends(get_current_active_user),
 ):
     """
     Update own user.
@@ -70,14 +67,14 @@ def update_user_me(
         user_in.full_name = full_name
     if email is not None:
         user_in.email = email
-    user = crud.user.update(db, user=current_user, user_in=user_in)
+    user = user_crud.update(db, user=User(**current_user.__dict__), user_in=user_in)
     return user
 
 
-@router.get("/me", response_model=User)
-def read_user_me(
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_active_user),
+@router.get("/me", response_model=UserBaseInDB)
+async def read_user_me(
+    db: Database = Depends(get_async_db),
+    current_user: UserORM = Depends(get_current_active_user),
 ):
     """
     Get current user.
@@ -86,11 +83,11 @@ def read_user_me(
 
 
 @router.post("/open", response_model=User)
-def create_user_open(
+async def create_user_open(
     *,
-    db: Session = Depends(get_db),
+    db: Database = Depends(get_async_db),
     password: str = Body(...),
-    email: EmailStr = Body(...),
+    email: str = Body(...),
     full_name: str = Body(None),
 ):
     """
@@ -99,56 +96,56 @@ def create_user_open(
     if not config.USERS_OPEN_REGISTRATION:
         raise HTTPException(
             status_code=403,
-            detail="Open user resgistration is forbidden on this server",
+            detail="Open user registration is forbidden on this server",
         )
-    user = crud.user.get_by_email(db, email=email)
+    user = await user_crud.get_by_email(db, email=email)
     if user:
         raise HTTPException(
             status_code=400,
             detail="The user with this username already exists in the system",
         )
     user_in = UserCreate(password=password, email=email, full_name=full_name)
-    user = crud.user.create(db, user_in=user_in)
+    user = user_crud.create(db, user_in=user_in)
     return user
 
 
-@router.get("/{user_id}", response_model=User)
-def read_user_by_id(
+@router.get("/{user_id}", response_model=UserBaseInDB)
+async def read_user_by_id(
     user_id: int,
-    current_user: DBUser = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    current_user: UserORM = Depends(get_current_active_user),
+    db: Database = Depends(get_async_db),
 ):
     """
     Get a specific user by id.
     """
-    user = crud.user.get(db, user_id=user_id)
+    user = await user_crud.get(db, user_id=user_id)
     print("Here", user.email)
     if user == current_user:
         print("Here", user.email)
         return user
-    if not crud.user.is_superuser(current_user):
+    if not user_crud.is_superuser(current_user):
         raise HTTPException(
             status_code=400, detail="The user doesn't have enough privileges"
         )
     return user
 
 
-@router.put("/{user_id}", response_model=User)
-def update_user(
+@router.put("/{user_id}", response_model=UserBaseInDB)
+async def update_user(
     *,
-    db: Session = Depends(get_db),
+    db: Database = Depends(get_async_db),
     user_id: int,
     user_in: UserUpdate,
-    current_user: UserInDB = Depends(get_current_active_superuser),
+    current_user: UserSec = Depends(get_current_active_superuser),
 ):
     """
     Update a user.
     """
-    user = crud.user.get(db, user_id=user_id)
+    user = await user_crud.get(db, user_id=user_id)
     if not user:
         raise HTTPException(
             status_code=404,
             detail="The user with this username does not exist in the system",
         )
-    user = crud.user.update(db, user=user, user_in=user_in)
+    user = user_crud.update(db, user=User(**user.__dict__), user_in=user_in)
     return user
