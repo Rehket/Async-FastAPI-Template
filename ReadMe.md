@@ -6,13 +6,8 @@
 - Setup the env.ps1 script with desired variables. 
 - In the virtual environment:
     - run the ```env.ps1``` script to set the environment variables. 
-    - install the packages included in the ```req.txt```
+    - install the packages included in the ```req-dev.txt```
     - run ```python ./bootstrap.py```
-    
-    If you want the alembic generated model use: 
-    - run ```alembic revision --autogenerate -m "Setup initial user table"```  
-    - run ```alembic upgrade head```
-    - run ```python ./initial_data.py```
     
     Lastly...
     - run ```uvicorn app.main:app --reload``` to start the application 
