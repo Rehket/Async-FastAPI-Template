@@ -1,9 +1,14 @@
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import (
+    engine_from_config,
+    pool,
+    MetaData,
+    Table,
+    ForeignKeyConstraint,
+    Index,
+)
+from logging.config import fileConfig
+import config as app_config
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -13,16 +18,81 @@ config = context.config
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+from app.db.base import Base  # noqa
+
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+# TODO: See if search path needs to be added here.
+def get_url():
+    return f"postgresql://{app_config.POSTGRES_USER}:{app_config.POSTGRES_PASSWORD}@{app_config.POSTGRES_SERVER}:{app_config.POSTGRES_PORT}/{app_config.POSTGRES_DB}?options=-csearch_path={app_config.POSTGRES_SCHEMA}"
+
+
+def include_schemas(names):
+    # produce an include object function that filters on the given schemas
+    def include_object(object, name, type_, reflected, compare_to):
+        if type_ == "table":
+            return object.schema in names
+        return True
+
+    return include_object
+
+
+def lookup_correct_schema(name):
+    if name in app_config.PUBLIC_TABLES:
+        return "public"
+    else:
+        return app_config.POSTGRES_SCHEMA
+
+
+def _get_table_key(name, schema):
+    if schema is None:
+        return name
+    else:
+        return schema + "." + name
+
+
+def tometadata(table, metadata, schema):
+    key = _get_table_key(table.name, schema)
+    if key in metadata.tables:
+        return metadata.tables[key]
+
+    args = []
+    for c in table.columns:
+        args.append(c.copy(schema=schema))
+    new_table = Table(table.name, metadata, schema=schema, *args, **table.kwargs)
+    for c in table.constraints:
+        if isinstance(c, ForeignKeyConstraint):
+            constraint_schema = lookup_correct_schema(c.elements[0].column.table.name)
+        else:
+            constraint_schema = schema
+        new_table.append_constraint(
+            c.copy(schema=constraint_schema, target_table=new_table)
+        )
+
+    for index in table.indexes:
+        # skip indexes that would be generated
+        # by the 'index' flag on Column
+        if len(index.columns) == 1 and list(index.columns)[0].index:
+            continue
+        Index(
+            index.name,
+            unique=index.unique,
+            *[new_table.c[col] for col in index.columns.keys()],
+            **index.kwargs,
+        )
+    return table._schema_item_copy(new_table)
+
+
+meta_schemax = MetaData()
+for table in target_metadata.tables.values():
+    tometadata(table, meta_schemax, lookup_correct_schema(table.name))
+target_metadata = meta_schemax
 
 
 def run_migrations_offline():
@@ -37,12 +107,13 @@ def run_migrations_offline():
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        version_table_schema=app_config.POSTGRES_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -56,18 +127,23 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = get_url()
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+        configuration, prefix="sqlalchemy.", poolclass=pool.NullPool
     )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            include_schemas=True,  # schemas,
+            version_table_schema=app_config.POSTGRES_SCHEMA,
+            include_object=include_schemas([None, app_config.POSTGRES_SCHEMA]),
         )
-
         with context.begin_transaction():
+            context.execute(f"SET search_path TO {app_config.POSTGRES_SCHEMA}")
             context.run_migrations()
 
 
