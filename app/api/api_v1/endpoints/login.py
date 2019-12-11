@@ -1,39 +1,36 @@
 from datetime import timedelta
-
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-
-from app import crud
-from app.api.utils.db import get_db
+from sqlalchemy import insert
+from app.api.utils.db import get_async_db
 from app.api.utils.security import get_current_user
-import config
 from app.core.jwt import create_access_token
 from app.core.security import get_password_hash
-from app.db_models.user import User as DBUser
 from app.models.msg import Msg
 from app.models.token import Token
-from app.models.user import User
-from app.utils import (
-    verify_password_reset_token,
-)
+from app.users.controller import UserORM, User
+from app.utils import verify_password_reset_token
+from app.users import crud as user_crud
+from databases import Database
+import config
 
 router = APIRouter()
 
 
 @router.post("/login/access-token", response_model=Token, tags=["login"])
-def login_access_token(
-    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+async def login_access_token(
+    db: Database = Depends(get_async_db),
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """
     OAuth2 compatible token login, get an access token for future requests
     """
-    user = crud.user.authenticate(
+    user = await user_crud.authenticate(
         db, email=form_data.username, password=form_data.password
     )
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    elif not crud.user.is_active(user):
+    elif not user_crud.is_active(user):
         raise HTTPException(status_code=400, detail="Inactive user")
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
@@ -45,7 +42,7 @@ def login_access_token(
 
 
 @router.post("/login/test-token", tags=["login"], response_model=User)
-def test_token(current_user: DBUser = Depends(get_current_user)):
+async def test_token(current_user: UserORM = Depends(get_current_user)):
     """
     Test access token
     """
@@ -53,23 +50,27 @@ def test_token(current_user: DBUser = Depends(get_current_user)):
 
 
 @router.post("/reset-password/", tags=["login"], response_model=Msg)
-def reset_password(token: str = Body(...), new_password: str = Body(...), db: Session = Depends(get_db)):
+async def reset_password(
+    token: str = Body(...),
+    new_password: str = Body(...),
+    db: Database = Depends(get_async_db),
+):
     """
     Reset password
     """
     email = verify_password_reset_token(token)
     if not email:
         raise HTTPException(status_code=400, detail="Invalid token")
-    user = crud.user.get_by_email(db, email=email)
+    user = user_crud.get_by_email(db, email=email)
     if not user:
         raise HTTPException(
             status_code=404,
             detail="The user with this username does not exist in the system.",
         )
-    elif not crud.user.is_active(user):
+    elif not user_crud.is_active(user):
         raise HTTPException(status_code=400, detail="Inactive user")
     hashed_password = get_password_hash(new_password)
     user.hashed_password = hashed_password
-    db.add(user)
-    db.commit()
+
+    await db.execute(insert(UserORM), **user.__dict__)
     return {"msg": "Password updated successfully"}
