@@ -32,7 +32,7 @@ app.include_router(api_router, prefix=config.API_V1_STR)
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     request.state.db = Session()
-    request.state.a_db = database
+    request.state.async_db = database
     response = await call_next(request)
     request.state.db.close()
     return response
