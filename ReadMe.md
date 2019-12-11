@@ -18,7 +18,10 @@ going to ```localhost:8000/docs``` or what you configured in the env.ps1, you wi
 
 
 ### Change Log:
-#### 1-Aug-2019
+#### [11-December-2019](change-log/11-December-2019.md)
+Updated Bootstrap Script and going to async!
+
+#### 1-August-2019
 Changing this repo from a repo used for demoing an issue to a template for making an API service using postgres and FastAPI.
 
 - Adding an archive with the old readme detailing the error. 
