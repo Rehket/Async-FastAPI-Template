@@ -1,0 +1,37 @@
+site_name: Python Template
+theme:
+  name: material
+plugins:
+    - search
+docs_dir: ./docs
+markdown_extensions:
+- toc:
+    permalink: true
+- markdown.extensions.codehilite:
+    guess_lang: false
+- markdown_include.include:
+    base_path: docs
+- admonition
+- codehilite
+- extra
+- pymdownx.superfences:
+    custom_fences:
+    - name: mermaid
+      class: mermaid
+      format: !!python/name:pymdownx.superfences.fence_div_format ''
+- pymdownx.tabbed
+
+extra_css:
+- css/termynal.css
+- css/custom.css
+extra_javascript:
+- https://unpkg.com/mermaid@8.4.6/dist/mermaid.min.js
+- js/termynal.js
+- js/custom.js
+-
+nav:
+- Product Search: index.md
+
+- Change Log:
+    - change-log/04-August-2020.md
+    - change-log/11-December-2019.md

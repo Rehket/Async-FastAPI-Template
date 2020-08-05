@@ -1,12 +1,15 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
+from starlette.staticfiles import StaticFiles
 
 from app.api.api_v1.api import api_router
 import config
 from app.db.session import Session
 from databases import Database
-app = FastAPI(title=config.PROJECT_NAME, openapi_url="/api/v1/openapi.json")
+
+app = FastAPI(title=config.PROJECT_NAME, openapi_url="/api/v1/openapi.json", openapi_prefix=config.OPEN_API_PREFIX)
+app.mount("/static", StaticFiles(directory="site", html=True), name="site")
 database = Database(config.SQLALCHEMY_DATABASE_URI)
 
 # CORS
@@ -31,10 +34,8 @@ app.include_router(api_router, prefix=config.API_V1_STR)
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
-    request.state.db = Session()
     request.state.async_db = database
     response = await call_next(request)
-    request.state.db.close()
     return response
 
 @app.on_event("startup")

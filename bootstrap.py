@@ -1,20 +1,14 @@
 # Used to bootstrap a dev environment.
 
-import os
-import sys
 import config
-from tenacity import retry, wait_fixed, after_log, before_sleep_log
-import docker
+from tenacity import retry, wait_fixed
 from psycopg2 import connect
 from config import logger
 import alembic.command
 import alembic.config
 import asyncio
 from databases import Database
-from time import sleep
-import logging
 
-docker_client = docker.from_env()
 
 
 def my_before_sleep(retry_state):
@@ -74,32 +68,7 @@ def setup_database(database_name: str = "postgres"):
 
 
 def run_dev_bootstrap():
-    # Make Sure it is dev
-    my_containers = [
-        x for x in docker_client.containers.list() if x.name == config.POSTGRES_SERVER
-    ]
 
-    if len(my_containers) > 0:
-        logger.info(
-            f"Removing container <{my_containers[0].name}: {my_containers[0].id}> "
-        )
-        my_containers[0].remove(force=True)
-
-    # Set up Docker Containers
-    postgres_container = docker_client.containers.run(
-        image="postgres",
-        ports={"5432/tcp": int(config.POSTGRES_PORT)},
-        environment={
-            "POSTGRES_PASSWORD": config.POSTGRES_PASSWORD,
-            "POSTGRES_USER": config.POSTGRES_USER,
-            "POSTGRES_DB": "postgres",
-        },
-        auto_remove=True,
-        name=config.POSTGRES_SERVER,
-        detach=True,
-    )
-
-    # Check it.
     check_database_health()
     setup_database()
 
@@ -127,18 +96,7 @@ async def setup_initial_users(async_db: Database):
 
 async def run_main():
 
-    if config.getenv_boolean("LOCAL_DEV"):
-        logger.warning(
-            "Starting Local Bootstrap! You have 30 seconds to cancel this operation!"
-        )
-        sleep(30)
-        run_dev_bootstrap()
-
-    elif not config.getenv_boolean("LOCAL_DEV"):
-        logger.warning("Remote not setup yet!")
-
-    else:
-        raise EnvironmentError("LOCAL_DEV environment variable must be set.")
+    run_dev_bootstrap()
 
     async with Database(config.SQLALCHEMY_DATABASE_URI) as database:
         await setup_initial_users(database)

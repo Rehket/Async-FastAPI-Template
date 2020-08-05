@@ -1,3 +1,7 @@
+from __future__ import with_statement
+
+import os
+
 from alembic import context
 from sqlalchemy import (
     engine_from_config,
@@ -8,6 +12,7 @@ from sqlalchemy import (
     Index,
 )
 from logging.config import fileConfig
+from config import POSTGRES_SCHEMA, PUBLIC_TABLES
 import config as app_config
 
 # this is the Alembic Config object, which provides
@@ -30,7 +35,14 @@ target_metadata = Base.metadata
 
 # TODO: See if search path needs to be added here.
 def get_url():
-    return f"postgresql://{app_config.POSTGRES_USER}:{app_config.POSTGRES_PASSWORD}@{app_config.POSTGRES_SERVER}:{app_config.POSTGRES_PORT}/{app_config.POSTGRES_DB}?options=-csearch_path={app_config.POSTGRES_SCHEMA}"
+    user = app_config.POSTGRES_USER
+    password = app_config.POSTGRES_PASSWORD
+    server = app_config.POSTGRES_SERVER
+    db = app_config.POSTGRES_DB
+    port = app_config.POSTGRES_PORT
+    if app_config.RDS_SSL_CONTEXT:
+        return f"postgresql://{user}:{password}@{server}:{port}/{db}?sslmode=require&sslrootcert={app_config.RDS_CERTIFICATE_PATH}"
+    return f"postgresql://{user}:{password}@{server}:{port}/{db}"
 
 
 def include_schemas(names):
@@ -44,10 +56,10 @@ def include_schemas(names):
 
 
 def lookup_correct_schema(name):
-    if name in app_config.PUBLIC_TABLES:
+    if name in PUBLIC_TABLES:
         return "public"
     else:
-        return app_config.POSTGRES_SCHEMA
+        return POSTGRES_SCHEMA
 
 
 def _get_table_key(name, schema):
@@ -113,7 +125,7 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
-        version_table_schema=app_config.POSTGRES_SCHEMA,
+        version_table_schema=POSTGRES_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -139,11 +151,13 @@ def run_migrations_online():
             target_metadata=target_metadata,
             compare_type=True,
             include_schemas=True,  # schemas,
-            version_table_schema=app_config.POSTGRES_SCHEMA,
-            include_object=include_schemas([None, app_config.POSTGRES_SCHEMA]),
+            version_table_schema=POSTGRES_SCHEMA,
+            include_object=include_schemas([None, POSTGRES_SCHEMA])
         )
         with context.begin_transaction():
-            context.execute(f"SET search_path TO {app_config.POSTGRES_SCHEMA}")
+
+            context.execute(f"CREATE SCHEMA IF NOT EXISTS {POSTGRES_SCHEMA};")
+            context.execute(f"SET search_path TO {POSTGRES_SCHEMA}")
             context.run_migrations()
 
 

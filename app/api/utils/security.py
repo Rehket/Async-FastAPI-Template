@@ -12,7 +12,7 @@ from app.users.controller import UserORM
 from app.models.token import TokenPayload
 from databases import Database
 
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/api/v1/login/access-token")
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{config.OPEN_API_PREFIX}/api/v1/login/access-token")
 
 
 async def get_current_user(

@@ -1,4 +1,5 @@
 import os
+import ssl
 
 try:
     import loguru
@@ -17,7 +18,7 @@ def getenv_boolean(var_name, default_value=False):
 
 
 API_V1_STR = "/api/v1"
-
+OPEN_API_PREFIX = os.getenv("OPEN_API_PREFIX", "")
 if os.supports_bytes_environ:
     SECRET_KEY = os.getenvb(b"SECRET_KEY")
 else:
@@ -42,6 +43,15 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 POSTGRES_SCHEMA = os.getenv("POSTGRES_SCHEMA")
+RDS_CERTIFICATE_PATH = os.getenv("RDS_CERTIFICATE_PATH")
+RDS_SSL_CONTEXT = (
+    ssl.create_default_context(
+        purpose=ssl.Purpose.SERVER_AUTH, cafile=RDS_CERTIFICATE_PATH
+    )
+    if RDS_CERTIFICATE_PATH
+    else None
+)
+
 SQLALCHEMY_DATABASE_URI = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}?options=-csearch_path={POSTGRES_SCHEMA}"
 
 PUBLIC_TABLES = []

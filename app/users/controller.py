@@ -34,6 +34,7 @@ class UserBaseInDB(UserBase):
     sys_created_date: datetime = None
     sys_modified_date: datetime = None
 
+
 # Properties to receive via API on creation
 class UserCreate(UserBaseInDB):
     email: str

@@ -1,0 +1,45 @@
+version: '3.1'
+services:
+  web:
+    build: .
+    command: ./init.ash
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app_dir
+      - SERVER_NAME=localhost
+      - SERVER_HOST=localhost
+      - BACKEND_CORS_ORIGINS="http://localhost, http://localhost:4200, http://localhost:3000, http://localhost:8000"
+      - PROJECT_NAME=Template API
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_DB=template_db
+      - POSTGRES_PORT=5432
+      - POSTGRES_PASSWORD=PG+change_password
+      - POSTGRES_USER=postgres
+      - POSTGRES_SCHEMA=template_schema
+      - SECRET_KEY=)u!weeeeeee(a1(\=%5c7ga(ou@_b_
+      - DEBUG_MODE=True
+      - LOCAL_DEV=True
+      - FIRST_SUPERUSER=adam@adam.com
+      - FIRST_SUPERUSER_PASSWORD=44d339666
+      - USERS_OPEN_REGISTRATION=False
+      - INBOUND_FILE_DIR=/tmp/
+      - SCRIPT_DIRECTORY=/app_dir/scripts/
+    volumes:
+      - ./compose-init.ash:/app_dir/compose-init.ash
+    depends_on:
+      - postgres
+  postgres:
+    image: "postgres:11"
+    ports:
+      - "5500:5432"
+    environment:
+      - POSTGRES_DB=template_schema
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=PG+change_password
+
+    volumes:
+    - pg11:/var/lib/postgresql/data
+
+volumes:
+  pg11:
