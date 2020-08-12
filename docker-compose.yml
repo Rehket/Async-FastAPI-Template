@@ -4,7 +4,7 @@ services:
     build: .
     command: ./init.ash
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - PYTHONPATH=/app_dir
       - SERVER_NAME=localhost
